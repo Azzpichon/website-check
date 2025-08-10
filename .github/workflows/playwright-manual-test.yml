@@ -1,0 +1,56 @@
+# ワークフローの名前（GitHubの画面に表示される）
+name: Manual Site Check
+
+# 実行のきっかけを設定
+on:
+  # これが手動実行の「おまじない」っス！
+  workflow_dispatch:
+    # ブラウザの画面に表示する入力欄を定義
+    inputs:
+      url:
+        description: 'チェックしたいサイトのURL'
+        required: true
+        default: 'https://www.google.com/' # デフォルト値
+
+# 実行するお仕事（ジョブ）を定義
+jobs:
+  playwright-test:
+    # 実行するサーバー環境
+    runs-on: ubuntu-latest
+    
+    # 実行する手順（ステップ）
+    steps:
+      # 1. リポジトリのコードを持ってくる
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # 2. Node.js環境を準備する
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Node.jsのバージョン
+
+      # 3. 必要なパッケージをインストールする
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Playwrightのブラウザをインストールする
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # 5. Playwrightのテストを実行する
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          # 入力されたURLを、環境変数としてテストコードに渡す
+          TARGET_URL: ${{ github.event.inputs.url }}
+
+      # 6. テスト結果レポートをアップロードする
+      - name: Upload report
+        # テストが失敗しても必ず実行する
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report # アーティファクトの名前
+          path: playwright-report/ # アップロードするフォルダ
+          retention-days: 7 # 保存期間
